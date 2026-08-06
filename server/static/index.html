@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remote Management Console</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <div class="bgfx" aria-hidden="true"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+
+  <!-- ================= LOGIN OVERLAY ================= -->
+  <div id="login" class="login">
+    <div class="login-card login-wide">
+      <div class="login-logo">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+      </div>
+      <h1>Remote Management Console</h1>
+      <p class="login-sub">Same network · share your IP to be controlled · enter a partner's to control them</p>
+
+      <div class="login-cols">
+        <!-- This PC's own credentials -->
+        <div class="lcol">
+          <div class="lcol-head"><span class="lcol-badge you">This PC</span> Allow remote control</div>
+          <div class="cred">
+            <span class="cred-label">Your IP address</span>
+            <div class="cred-val" id="myId" title="click to copy">…</div>
+          </div>
+          <div class="cred">
+            <span class="cred-label">Password</span>
+            <div class="cred-val" id="myPw" title="click to copy">…</div>
+          </div>
+          <p class="cred-note" id="myStatus">Give these to a partner so they can control this PC.</p>
+        </div>
+
+        <div class="lcol-divider"></div>
+
+        <!-- Control a partner -->
+        <div class="lcol">
+          <div class="lcol-head"><span class="lcol-badge remote">Remote</span> Control a partner</div>
+          <label class="field">
+            <span>Partner IP address</span>
+            <input id="loginId" type="text" inputmode="decimal" placeholder="e.g. 192.168.1.23" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="loginPw" type="password" placeholder="partner password" autocomplete="off" />
+          </label>
+          <button id="loginBtn" class="btn btn-primary btn-block">
+            <span>Connect to partner</span>
+          </button>
+          <div id="loginError" class="login-error"></div>
+        </div>
+      </div>
+      <div class="login-foot">A partner's IP &amp; password appear in the agent window on their PC (same Wi-Fi / LAN)</div>
+    </div>
+  </div>
+
+  <!-- ================= APP ================= -->
+  <div id="app" class="app hidden">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="brand">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+        <span>Remote Management Console</span>
+      </div>
+      <div class="topbar-right">
+        <span class="pill" id="devicePill"><i class="dot dot-live"></i> ID <b id="deviceIdText">—</b></span>
+        <span id="statusPill" class="pill pill-ok"><i class="dot dot-live"></i><span id="statusText">connected</span></span>
+        <button class="btn btn-ghost btn-sm theme-btn" title="Theme: dark / light / system"><span class="theme-ic">🌙</span></button>
+        <button id="disconnectBtn" class="btn btn-ghost btn-sm">Disconnect</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-head">Managed PCs</div>
+        <ul id="agentList" class="agent-list"></ul>
+      </aside>
+
+      <!-- Main -->
+      <main class="content">
+        <div id="empty" class="empty">
+          <svg viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="1.4">
+            <rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 20h8"/>
+          </svg>
+          <p>Select a managed PC from the left to begin.</p>
+        </div>
+
+        <div id="panel" class="panel hidden">
+          <!-- Agent header card -->
+          <div class="agent-card">
+            <div class="agent-avatar" id="agentAvatar">PC</div>
+            <div class="agent-info">
+              <div class="agent-name" id="agentName">—</div>
+              <div class="agent-meta" id="agentMeta">—</div>
+            </div>
+            <div class="hw-ind" id="hwInd" title="live battery & estimated power">
+              <span class="hw-batt" id="hwBatt">
+                <span id="battBolt" class="batt-bolt">⚡</span>
+                <span class="batt-shell"><i id="battFill"></i></span>
+                <b id="battPct">—</b>
+              </span>
+              <span class="hw-power"><b id="powerW">—</b></span>
+            </div>
+            <div class="agent-badge"><i class="dot dot-live"></i> Online</div>
+          </div>
+
+          <div id="virtualBanner" class="vbanner hidden">
+            <b>Virtual account (demo).</b> This is a virtual partner for testing — you can
+            <b>view</b> the features, but it runs on the host machine and can't be controlled like a real remote PC.
+          </div>
+
+          <!-- Tabs -->
+          <nav class="tabs">
+            <button class="tab active" data-tab="apps">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+              <span>Applications</span>
+            </button>
+            <button class="tab" data-tab="processes">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1.3"/><circle cx="3.5" cy="12" r="1.3"/><circle cx="3.5" cy="18" r="1.3"/></svg>
+              <span>Processes</span>
+            </button>
+            <button class="tab" data-tab="screen">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              <span>Screen</span>
+            </button>
+            <button class="tab" data-tab="webcam">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span>Webcam</span>
+            </button>
+            <button class="tab" data-tab="files">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              <span>Files</span>
+            </button>
+            <button class="tab" data-tab="keylog">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+              <span>Keylogger</span>
+            </button>
+            <button class="tab" data-tab="power">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+              <span>Power</span>
+            </button>
+            <button class="tab tab-eco" data-tab="energy">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 20A7 7 0 0 1 4 13c0-5 4-9 9-10 0 5-1 8-4 10M4 20c3-4 7-6 11-7"/></svg>
+              <span>Sustainability</span>
+            </button>
+          </nav>
+
+          <!-- Applications (grouped, categorized) -->
+          <section class="tabpane active" data-pane="apps">
+            <div class="toolbar">
+              <span class="muted">Running apps grouped by program</span>
+              <span class="spacer"></span>
+              <span id="appsCount" class="muted"></span>
+              <button id="appsRefresh" class="btn btn-primary btn-sm">↻ Refresh</button>
+            </div>
+            <div class="app-section">
+              <div class="app-sec-head hi"><span>High CPU</span><span class="app-sec-count" id="cntHigh">0</span></div>
+              <div class="app-list" id="listHigh"><div class="app-empty">—</div></div>
+            </div>
+            <div class="app-section">
+              <div class="app-sec-head run"><span>Running</span><span class="app-sec-count" id="cntRun">0</span></div>
+              <div class="app-list" id="listRun"><div class="app-empty">—</div></div>
+            </div>
+            <div class="app-section">
+              <div class="app-sec-head bg"><span>Background</span><span class="app-sec-count" id="cntBg">0</span></div>
+              <div class="app-list" id="listBg"><div class="app-empty">—</div></div>
+            </div>
+          </section>
+
+          <!-- Processes (raw list) -->
+          <section class="tabpane" data-pane="processes">
+            <div class="toolbar">
+              <input id="procFilter" class="input" placeholder="Filter processes by name…" />
+              <span class="spacer"></span>
+              <span id="procCount" class="muted">0 processes</span>
+              <button id="procRefresh" class="btn btn-primary btn-sm">↻ Refresh</button>
+            </div>
+            <div class="card table-wrap">
+              <table class="table">
+                <thead><tr><th style="width:80px">PID</th><th>Application</th><th style="width:160px">User</th><th style="width:160px">Memory</th><th style="width:70px"></th></tr></thead>
+                <tbody id="procBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Screen -->
+          <section class="tabpane" data-pane="screen">
+            <div class="toolbar">
+              <button class="btn btn-primary btn-sm" data-cmd="screen_start">▶ Start</button>
+              <button class="btn btn-ghost btn-sm" data-cmd="screen_stop">■ Stop</button>
+              <button id="screenControl" class="btn btn-ghost btn-sm">🖱 Take control</button>
+              <span class="spacer"></span>
+              <span id="controlBadge" class="ctl-badge hidden">🎮 CONTROLLING</span>
+              <span id="screenBadge" class="live-badge hidden"><i class="dot dot-live"></i> LIVE</span>
+            </div>
+            <div id="screenViewport" class="card viewport">
+              <img id="screenImg" alt="" draggable="false" />
+              <div id="screenPlaceholder" class="viewport-empty">Press <b>Start</b> to stream this PC's screen</div>
+            </div>
+            <p id="controlHint" class="ctl-hint hidden">Control mode: your clicks, scroll and keystrokes are sent to the remote PC. Click the screen once to focus it, then type.</p>
+          </section>
+
+          <!-- Webcam -->
+          <section class="tabpane" data-pane="webcam">
+            <div class="toolbar">
+              <button class="btn btn-primary btn-sm" data-cmd="webcam_start">▶ Start</button>
+              <button class="btn btn-ghost btn-sm" data-cmd="webcam_stop">■ Stop</button>
+              <span class="spacer"></span>
+              <span id="webcamBadge" class="live-badge hidden"><i class="dot dot-live"></i> LIVE</span>
+            </div>
+            <div class="card viewport">
+              <img id="webcamImg" alt="" />
+              <div id="webcamPlaceholder" class="viewport-empty">Press <b>Start</b> to view the webcam</div>
+            </div>
+          </section>
+
+          <!-- Files -->
+          <section class="tabpane" data-pane="files">
+            <div class="toolbar">
+              <button id="fileUp" class="btn btn-ghost btn-sm">↑ Up</button>
+              <span id="filePath" class="file-path">—</span>
+              <span class="spacer"></span>
+              <button id="fileRefresh" class="btn btn-ghost btn-sm">↻</button>
+              <button id="fileUpload" class="btn btn-primary btn-sm">⬆ Upload here</button>
+              <input id="fileInput" type="file" hidden />
+            </div>
+            <div class="card table-wrap">
+              <table class="table file-table">
+                <thead><tr><th>Name</th><th style="width:120px">Size</th><th style="width:110px"></th></tr></thead>
+                <tbody id="fileBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Keylogger -->
+          <section class="tabpane" data-pane="keylog">
+            <div class="toolbar">
+              <button class="btn btn-primary btn-sm" data-cmd="keylog_start">▶ Start</button>
+              <button class="btn btn-ghost btn-sm" data-cmd="keylog_stop">■ Stop</button>
+              <span class="spacer"></span>
+              <span id="keylogBadge" class="live-badge hidden"><i class="dot dot-live"></i> CAPTURING</span>
+              <button id="keyClear" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+            <div class="card"><pre id="keylogOut" class="keylog"></pre></div>
+          </section>
+
+          <!-- Power -->
+          <section class="tabpane" data-pane="power">
+            <div class="power-grid">
+              <div class="power-card">
+                <div class="power-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+                <h3>Lock Screen</h3>
+                <p>Locks the remote PC — keeps it on but requires the password. Saves display energy.</p>
+                <button class="btn btn-primary btn-block" data-cmd="lock" data-confirm="Lock this PC's screen?">Lock</button>
+              </div>
+              <div class="power-card">
+                <div class="power-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></div>
+                <h3>Sleep</h3>
+                <p>Suspends the PC to low-power sleep (~1 W). It disconnects until woken.</p>
+                <button class="btn btn-primary btn-block" data-cmd="sleep" data-confirm="Put this PC to sleep? It will disconnect.">Sleep</button>
+              </div>
+              <div class="power-card">
+                <div class="power-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg></div>
+                <h3>Restart</h3>
+                <p>Reboots the remote PC after a 5-second delay.</p>
+                <button class="btn btn-primary btn-block" data-cmd="restart" data-confirm="Restart this PC?">Restart</button>
+              </div>
+              <div class="power-card">
+                <div class="power-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18.4 6.6a9 9 0 1 1-12.7 0"/><path d="M12 2v10"/></svg></div>
+                <h3>Shutdown</h3>
+                <p>Powers off the remote PC after a 5-second delay.</p>
+                <button class="btn btn-primary btn-block" data-cmd="shutdown" data-confirm="Shut down this PC?">Shutdown</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Sustainability / Energy -->
+          <section class="tabpane" data-pane="energy">
+            <div class="eco-grid">
+              <div class="eco-card">
+                <div class="eco-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div>
+                <div class="eco-label">Performance</div>
+                <div class="eco-value" id="ecoCpu">—</div>
+                <div class="eco-bar"><i id="ecoCpuBar"></i></div>
+                <div class="eco-sub" id="ecoCpuSub">CPU load</div>
+              </div>
+              <div class="eco-card">
+                <div class="eco-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg></div>
+                <div class="eco-label">Temperature</div>
+                <div class="eco-value" id="ecoTemp">—</div>
+                <div class="eco-sub" id="ecoTempSub">CPU temperature</div>
+              </div>
+              <div class="eco-card">
+                <div class="eco-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 3v6M15 3v6M7 9h10v2a5 5 0 0 1-10 0zM12 16v5"/></svg></div>
+                <div class="eco-label">Power Consumption</div>
+                <div class="eco-value" id="ecoPower">—</div>
+                <div class="eco-sub">estimated draw</div>
+              </div>
+              <div class="eco-card">
+                <div class="eco-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2" y="8" width="17" height="9" rx="2"/><path d="M22 11v3"/></svg></div>
+                <div class="eco-label">Battery Life</div>
+                <div class="eco-value" id="ecoBattery">—</div>
+                <div class="eco-sub" id="ecoBatterySub">battery status</div>
+              </div>
+            </div>
+
+            <div class="eco-summary card">
+              <div class="eco-score-box">
+                <div class="eco-score" id="ecoScore">—</div>
+                <div class="eco-score-label" id="ecoScoreLabel">Eco score</div>
+              </div>
+              <div class="eco-facts">
+                <div class="eco-fact"><span>Estimated CO₂</span><b id="ecoCo2">—</b></div>
+                <div class="eco-fact"><span>Memory in use</span><b id="ecoRam">—</b></div>
+                <div class="eco-tips" id="ecoTips"></div>
+              </div>
+            </div>
+            <div class="eco-actions card">
+              <div class="eco-actions-head">Power-saving actions</div>
+              <p class="eco-actions-sub">Apply these to the remote PC to cut its energy use right now.</p>
+              <div class="eco-actions-row">
+                <button class="eco-act" data-cmd="lock" data-confirm="Lock this PC's screen?">
+                  <span class="eco-act-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+                  <span class="eco-act-tx"><b>Lock screen</b><small id="ecoLockSave">saves display power</small></span>
+                </button>
+                <button class="eco-act" data-cmd="sleep" data-confirm="Put this PC to sleep? It will disconnect.">
+                  <span class="eco-act-ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg></span>
+                  <span class="eco-act-tx"><b>Sleep</b><small id="ecoSleepSave">drops to ~1 W</small></span>
+                </button>
+              </div>
+            </div>
+            <p class="eco-note">Green-computing view. Power &amp; temperature are estimated from CPU load when the OS doesn't expose sensors. Lower load means less energy and lower carbon.</p>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="log" class="toasts"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
